@@ -1,0 +1,626 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  CLIENT
+  PROVIDER
+  ADMIN
+  FISCAL
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY_FOR_PICKUP
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  CASH_ON_DELIVERY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  TRIAL
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum InteractionType {
+  VIEW
+  CLICK
+  CALL
+  WHATSAPP
+  WEBSITE
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  REVIEW_REQUEST
+  CAMPAIGN
+  SYSTEM
+  PAYMENT
+}
+
+// ============================================
+// AUTHENTICATION & USERS
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  name          String
+  phone         String?
+  document      String?   @unique // CPF or CNPJ
+  role          UserRole  @default(CLIENT)
+  image         String?
+
+  // Geolocation - usando Unsupported para PostGIS
+  latitude      Float?
+  longitude     Float?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts         Account[]
+  sessions         Session[]
+  provider         Provider?
+  orders           Order[]         @relation("ClientOrders")
+  reviews          Review[]
+  interactions     Interaction[]
+  notifications    Notification[]
+  verifications    Verification[]  @relation("FiscalVerifications")
+  operatorOf       ProviderUser[]
+
+  @@index([email])
+  @@index([role])
+  @@index([document])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// PROVIDERS (FORNECEDORES/PRESTADORES)
+// ============================================
+
+model Provider {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Business info
+  legalName     String
+  tradeName     String?
+  document      String   @unique // CNPJ or CPF
+  description   String?  @db.Text
+  logo          String?
+  coverImage    String?
+
+  // Address
+  street        String
+  number        String
+  complement    String?
+  neighborhood  String
+  city          String
+  state         String
+  zipCode       String
+  country       String   @default("BR")
+
+  // Geolocation
+  latitude      Float
+  longitude     Float
+
+  // Contact
+  phone         String
+  whatsapp      String?
+  website       String?
+  instagram     String?
+  facebook      String?
+
+  // Business hours (JSON format)
+  businessHours Json?
+
+  // Verification
+  isVerified       Boolean   @default(false)
+  verificationDate DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products       Product[]
+  categories     ProviderCategory[]
+  subscription   Subscription?
+  orders         Order[]        @relation("ProviderOrders")
+  reviews        Review[]
+  interactions   Interaction[]
+  verifications  Verification[]
+  campaigns      Campaign[]
+  users          ProviderUser[]
+
+  @@index([latitude, longitude])
+  @@index([isVerified])
+  @@index([document])
+  @@map("providers")
+}
+
+model ProviderUser {
+  id         String   @id @default(cuid())
+  providerId String
+  userId     String
+  role       String   @default("OPERATOR") // OWNER, OPERATOR, VIEWER
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([providerId, userId])
+  @@map("provider_users")
+}
+
+// ============================================
+// CATEGORIES
+// ============================================
+
+model Category {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique
+  description   String?
+  icon          String?
+  order         Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subcategories  Subcategory[]
+  products       Product[]
+  providers      ProviderCategory[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id          String   @id @default(cuid())
+  categoryId  String
+  name        String
+  slug        String
+  description String?
+  order       Int      @default(0)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products Product[]
+
+  @@unique([categoryId, slug])
+  @@map("subcategories")
+}
+
+model ProviderCategory {
+  id           String   @id @default(cuid())
+  providerId   String
+  categoryId   String
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([providerId, categoryId])
+  @@map("provider_categories")
+}
+
+// ============================================
+// PRODUCTS & SERVICES
+// ============================================
+
+model Product {
+  id            String   @id @default(cuid())
+  providerId    String
+  categoryId    String
+  subcategoryId String?
+
+  name          String
+  description   String   @db.Text
+  price         Decimal  @db.Decimal(10, 2)
+
+  // Images (array of URLs)
+  images        Json     @default("[]")
+
+  // Stock management
+  hasStock      Boolean  @default(false)
+  stock         Int?
+
+  // Featured product (max 5 per provider based on plan)
+  isFeatured    Boolean  @default(false)
+  featuredOrder Int?
+
+  // Status
+  isActive      Boolean  @default(true)
+
+  // SEO
+  slug          String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  provider     Provider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category     Category      @relation(fields: [categoryId], references: [id])
+  subcategory  Subcategory?  @relation(fields: [subcategoryId], references: [id])
+  orderItems   OrderItem[]
+
+  @@unique([providerId, slug])
+  @@index([providerId, isFeatured])
+  @@index([categoryId])
+  @@map("products")
+}
+
+// ============================================
+// ORDERS & PAYMENTS
+// ============================================
+
+model Order {
+  id              String        @id @default(cuid())
+  clientId        String
+  providerId      String
+
+  // Order info
+  orderNumber     String        @unique
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  status          OrderStatus   @default(PENDING)
+
+  // Payment
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentId       String?       // Gateway payment ID
+
+  // Delivery
+  deliveryAddress Json
+  trackingCode    String?
+  estimatedDelivery DateTime?
+  deliveredAt     DateTime?
+
+  // Notes
+  clientNotes     String?       @db.Text
+  providerNotes   String?       @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  client     User        @relation("ClientOrders", fields: [clientId], references: [id])
+  provider   Provider    @relation("ProviderOrders", fields: [providerId], references: [id])
+  items      OrderItem[]
+  review     Review?
+
+  @@index([clientId])
+  @@index([providerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ============================================
+// REVIEWS & RATINGS
+// ============================================
+
+model Review {
+  id         String   @id @default(cuid())
+  clientId   String
+  providerId String
+  orderId    String?  @unique
+
+  rating     Int      // 1-5 stars
+  comment    String?  @db.Text
+  images     Json     @default("[]")
+
+  // Provider response
+  response   String?  @db.Text
+  respondedAt DateTime?
+
+  // Moderation
+  isApproved Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  client   User     @relation(fields: [clientId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([providerId, isApproved])
+  @@index([clientId])
+  @@map("reviews")
+}
+
+// ============================================
+// INTERACTIONS & ANALYTICS
+// ============================================
+
+model Interaction {
+  id         String          @id @default(cuid())
+  clientId   String
+  providerId String
+  type       InteractionType
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  client   User     @relation(fields: [clientId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, createdAt])
+  @@index([clientId])
+  @@map("interactions")
+}
+
+// ============================================
+// VERIFICATION SYSTEM
+// ============================================
+
+model Verification {
+  id         String   @id @default(cuid())
+  providerId String
+  fiscalId   String
+
+  // Verification data
+  photo      String
+  latitude   Float
+  longitude  Float
+
+  // Validation
+  isValid    Boolean
+  distance   Float?   // Distance in meters from registered location
+  notes      String?  @db.Text
+
+  // Payment
+  amount     Decimal? @db.Decimal(10, 2)
+  paidAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  fiscal   User     @relation("FiscalVerifications", fields: [fiscalId], references: [id])
+
+  @@index([providerId])
+  @@index([fiscalId])
+  @@map("verifications")
+}
+
+// ============================================
+// PLANS & SUBSCRIPTIONS
+// ============================================
+
+model Plan {
+  id           String       @id @default(cuid())
+  name         String       @unique
+  slug         String       @unique
+  description  String?      @db.Text
+  price        Decimal      @db.Decimal(10, 2)
+  billingCycle BillingCycle @default(MONTHLY)
+
+  // Features (JSON)
+  features     Json
+
+  // Limits
+  maxProducts        Int  @default(0) // 0 = unlimited
+  maxCategories      Int  @default(1)
+  maxPhotosPerProduct Int  @default(1)
+  maxFeaturedProducts Int  @default(0)
+  hasEcommerce       Boolean @default(false)
+  hasCampaigns       Boolean @default(false)
+  maxCampaignsPerMonth Int  @default(0)
+  hasAdvancedReports Boolean @default(false)
+
+  // Status
+  isActive     Boolean  @default(true)
+  order        Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id              String             @id @default(cuid())
+  providerId      String             @unique
+  planId          String
+
+  status          SubscriptionStatus @default(ACTIVE)
+
+  // Billing
+  startDate       DateTime
+  endDate         DateTime?
+  nextBillingDate DateTime
+  cancelledAt     DateTime?
+
+  // Payment gateway
+  subscriptionId  String?            // Gateway subscription ID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  plan     Plan     @relation(fields: [planId], references: [id])
+
+  @@index([status])
+  @@index([nextBillingDate])
+  @@map("subscriptions")
+}
+
+// ============================================
+// MARKETING CAMPAIGNS
+// ============================================
+
+model Campaign {
+  id           String    @id @default(cuid())
+  providerId   String
+
+  name         String
+  description  String?   @db.Text
+
+  // Schedule
+  startDate    DateTime
+  endDate      DateTime
+
+  // Budget
+  budget       Decimal?  @db.Decimal(10, 2)
+  spent        Decimal   @db.Decimal(10, 2) @default(0)
+
+  // Targeting
+  targetRadius Int       @default(2) // km
+  targetCategories Json? // array of category IDs
+
+  // Status
+  isActive     Boolean   @default(true)
+
+  // Analytics
+  impressions  Int       @default(0)
+  clicks       Int       @default(0)
+  conversions  Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, isActive])
+  @@index([startDate, endDate])
+  @@map("campaigns")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String
+
+  type    NotificationType
+  title   String
+  body    String           @db.Text
+  data    Json?
+
+  isRead  Boolean          @default(false)
+  readAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
