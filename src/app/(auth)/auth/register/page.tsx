@@ -87,7 +87,7 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="João Silva"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 required
                 disabled={isLoading}
               />
@@ -99,7 +99,7 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
               />
@@ -111,7 +111,7 @@ export default function RegisterPage() {
                 type="tel"
                 placeholder="(11) 99999-9999"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
                 disabled={isLoading}
               />
             </div>
@@ -122,7 +122,7 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="000.000.000-00"
                 value={document}
-                onChange={(e) => setDocument(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDocument(e.target.value)}
                 disabled={isLoading}
               />
             </div>
@@ -133,7 +133,7 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="Mínimo 6 caracteres"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
               />

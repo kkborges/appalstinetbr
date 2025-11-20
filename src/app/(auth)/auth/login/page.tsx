@@ -49,7 +49,7 @@ export default function LoginPage() {
         router.push("/");
         router.refresh();
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao fazer login",
         description: "Ocorreu um erro inesperado",
@@ -64,7 +64,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signIn("google", { callbackUrl: "/" });
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao fazer login",
         description: "Ocorreu um erro ao fazer login com Google",
@@ -92,7 +92,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
               />
@@ -103,7 +103,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
               />
