@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     // Calculate average rating
     const avgRating =
       reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        ? reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviews.length
         : 0;
 
     return NextResponse.json({

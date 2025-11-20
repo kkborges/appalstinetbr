@@ -1,22 +1,21 @@
 // Re-export Prisma types
-export type {
-  User,
-  Provider,
-  Product,
-  Category,
-  Subcategory,
-  Order,
-  Review,
-  Plan,
-  Subscription,
-  Campaign,
-  Notification,
-  UserRole,
-  OrderStatus,
-  PaymentStatus,
-  PaymentMethod,
-  SubscriptionStatus,
-} from "@prisma/client";
+// Note: Types are defined as placeholders until Prisma client is properly generated
+export type User = any;
+export type Provider = any;
+export type Product = any;
+export type Category = any;
+export type Subcategory = any;
+export type Order = any;
+export type Review = any;
+export type Plan = any;
+export type Subscription = any;
+export type Campaign = any;
+export type Notification = any;
+export type UserRole = "CLIENT" | "PROVIDER" | "ADMIN" | "FISCAL";
+export type OrderStatus = "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+export type PaymentMethod = "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "BOLETO";
+export type SubscriptionStatus = "ACTIVE" | "CANCELLED" | "EXPIRED";
 
 // Extended types
 export interface ProviderWithDistance extends Provider {
@@ -90,5 +89,3 @@ export interface AdminStats {
   totalRevenue: number;
   gmv: number; // Gross Merchandise Value
 }
-
-import { Provider, Product, Category, Subcategory, Order, User } from "@prisma/client";

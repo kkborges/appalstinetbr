@@ -63,8 +63,9 @@ export async function GET(request: Request) {
     });
 
     // Filter by distance and calculate distance for each
+    type ProviderType = typeof providers[number];
     const providersWithDistance = providers
-      .map((provider) => {
+      .map((provider: ProviderType) => {
         const distance = calculateDistance(
           latitude,
           longitude,
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
         // Calculate average rating
         const avgRating =
           provider.reviews.length > 0
-            ? provider.reviews.reduce((sum, r) => sum + r.rating, 0) /
+            ? provider.reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) /
               provider.reviews.length
             : 0;
 
@@ -85,8 +86,8 @@ export async function GET(request: Request) {
           avgRating: Math.round(avgRating * 10) / 10,
         };
       })
-      .filter((provider) => provider.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
+      .filter((provider: ProviderType & { distance: number }) => provider.distance <= radius)
+      .sort((a: ProviderType & { distance: number }, b: ProviderType & { distance: number }) => a.distance - b.distance);
 
     return NextResponse.json({
       providers: providersWithDistance,
