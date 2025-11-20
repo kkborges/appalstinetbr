@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "5mb",
     },
   },
+  // Allow development access from local network IPs
+  devIndicators: {
+    buildActivityPosition: "bottom-right",
+  },
 };
 
 export default nextConfig;
