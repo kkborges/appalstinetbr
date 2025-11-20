@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   },
   // Allow development access from local network IPs
   devIndicators: {
-    buildActivityPosition: "bottom-right",
+    position: "bottom-right",
   },
 };
 
