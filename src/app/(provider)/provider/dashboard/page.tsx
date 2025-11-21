@@ -26,11 +26,9 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/login");
-    } else if (session?.user.role !== "PROVIDER") {
-      router.push("/");
+      router.push("/auth/login?redirect=/provider/dashboard");
     }
-  }, [status, session, router]);
+  }, [status, router]);
 
   if (status === "loading") {
     return (
@@ -40,24 +38,25 @@ export default function ProviderDashboard() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Painel do Fornecedor</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-sm">Olá, {session?.user.name}</span>
-              <Button variant="outline" onClick={() => router.push("/api/auth/signout")}>
-                Sair
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+  // Verificação de role
+  if (session?.user?.role && session.user.role !== "PROVIDER") {
+    return (
+      <div className="flex h-screen items-center justify-center p-8">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Acesso Negado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">Você não tem permissão para acessar o painel de fornecedor.</p>
+            <Button onClick={() => router.push("/")} className="w-full">Voltar à Página Inicial</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-      <div className="container mx-auto px-4 py-8">
+  return (
+    <div className="p-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
