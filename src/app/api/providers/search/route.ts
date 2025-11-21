@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { calculateDistance } from "@/lib/utils";
+import { mockProviders, calculateDistance, calculateAvgRating } from "@/lib/mock-data";
 
 export async function GET(request: Request) {
   try {
@@ -18,54 +17,30 @@ export async function GET(request: Request) {
       );
     }
 
-    // Build where clause
-    const where: any = {
-      isVerified: true,
-    };
+    // Using mock data temporarily (remove when database is ready)
+    let providers = mockProviders;
 
+    // Filter by category if specified
     if (categoryId) {
-      where.categories = {
-        some: {
-          categoryId,
-        },
-      };
+      providers = providers.filter((p) =>
+        p.categories.some((c) => c.categoryId === categoryId)
+      );
     }
 
+    // Filter by search query if specified
     if (query) {
-      where.OR = [
-        { tradeName: { contains: query, mode: "insensitive" } },
-        { legalName: { contains: query, mode: "insensitive" } },
-        { description: { contains: query, mode: "insensitive" } },
-      ];
+      const lowerQuery = query.toLowerCase();
+      providers = providers.filter(
+        (p) =>
+          p.tradeName.toLowerCase().includes(lowerQuery) ||
+          p.legalName.toLowerCase().includes(lowerQuery) ||
+          p.description.toLowerCase().includes(lowerQuery)
+      );
     }
 
-    // Get all providers matching criteria
-    const providers = await prisma.provider.findMany({
-      where,
-      include: {
-        categories: {
-          include: {
-            category: true,
-          },
-        },
-        reviews: {
-          select: {
-            rating: true,
-          },
-        },
-        _count: {
-          select: {
-            products: true,
-            reviews: true,
-          },
-        },
-      },
-    });
-
-    // Filter by distance and calculate distance for each
-    type ProviderType = typeof providers[number];
+    // Calculate distance and add average rating
     const providersWithDistance = providers
-      .map((provider: ProviderType) => {
+      .map((provider) => {
         const distance = calculateDistance(
           latitude,
           longitude,
@@ -73,21 +48,16 @@ export async function GET(request: Request) {
           provider.longitude
         );
 
-        // Calculate average rating
-        const avgRating =
-          provider.reviews.length > 0
-            ? provider.reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) /
-              provider.reviews.length
-            : 0;
+        const avgRating = calculateAvgRating(provider.id);
 
         return {
           ...provider,
           distance,
-          avgRating: Math.round(avgRating * 10) / 10,
+          avgRating,
         };
       })
-      .filter((provider: ProviderType & { distance: number }) => provider.distance <= radius)
-      .sort((a: ProviderType & { distance: number }, b: ProviderType & { distance: number }) => a.distance - b.distance);
+      .filter((provider) => provider.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
 
     return NextResponse.json({
       providers: providersWithDistance,

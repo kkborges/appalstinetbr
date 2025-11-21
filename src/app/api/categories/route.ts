@@ -1,25 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { mockCategories } from "@/lib/mock-data";
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
-      include: {
-        subcategories: {
-          orderBy: {
-            order: "asc",
-          },
-        },
-        _count: {
-          select: {
-            providers: true,
-          },
-        },
-      },
-      orderBy: {
-        order: "asc",
-      },
-    });
+    // Using mock data temporarily (remove when database is ready)
+    const categories = mockCategories;
 
     return NextResponse.json({ categories });
   } catch (error) {
