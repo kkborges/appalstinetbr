@@ -32,12 +32,16 @@ export default function ClientPage() {
           ];
           setUserLocation(coords);
         },
-        (error) => {
-          console.error("Error getting location:", error);
-          // Default to São Paulo
+        () => {
+          // Geolocation requires HTTPS or localhost
+          // Using São Paulo as default location
+          console.info("Using default location: São Paulo, SP");
           setUserLocation([-23.5505, -46.6333]);
         }
       );
+    } else {
+      // Geolocation not available, use default
+      setUserLocation([-23.5505, -46.6333]);
     }
   }, []);
 

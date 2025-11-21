@@ -23,8 +23,12 @@ export default function MapClient({
   center,
   onProviderClick,
 }: MapClientProps) {
+  // Use key to force remount on center change and avoid "already initialized" error
+  const mapKey = `map-${center[0]}-${center[1]}`;
+
   return (
     <MapContainer
+      key={mapKey}
       center={center}
       zoom={14}
       className="h-full w-full rounded-lg"
