@@ -13,15 +13,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "5mb",
-    },
-  },
-  // Allow development access from local network IPs
-  devIndicators: {
-    position: "bottom-right",
-  },
 };
 
 export default nextConfig;
