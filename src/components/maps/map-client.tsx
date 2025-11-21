@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -24,44 +23,13 @@ export default function MapClient({
   center,
   onProviderClick,
 }: MapClientProps) {
-  const [isClient, setIsClient] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Only render map after client-side hydration
-    setIsClient(true);
-
-    // Cleanup function to remove map instance
-    return () => {
-      if (containerRef.current) {
-        // Remove Leaflet's internal reference to prevent "already initialized" error
-        const container = containerRef.current;
-        if ((container as any)._leaflet_id) {
-          delete (container as any)._leaflet_id;
-        }
-        // Clear the container
-        container.innerHTML = '';
-      }
-    };
-  }, []);
-
-  // Don't render anything until client-side
-  if (!isClient) {
-    return (
-      <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-lg">
-        <p className="text-gray-500">Carregando mapa...</p>
-      </div>
-    );
-  }
-
   return (
-    <div ref={containerRef} className="h-full w-full">
-      <MapContainer
-        center={center}
-        zoom={14}
-        className="h-full w-full rounded-lg"
-        scrollWheelZoom={true}
-      >
+    <MapContainer
+      center={center}
+      zoom={14}
+      className="h-full w-full rounded-lg"
+      scrollWheelZoom={true}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -146,6 +114,5 @@ export default function MapClient({
         </Marker>
       ))}
     </MapContainer>
-    </div>
   );
 }

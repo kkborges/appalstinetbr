@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Disable React StrictMode in development to prevent Leaflet map reinitialization issues
+  // StrictMode intentionally double-renders components which conflicts with Leaflet
+  reactStrictMode: false,
   images: {
     remotePatterns: [
       {
