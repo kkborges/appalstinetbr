@@ -32,10 +32,28 @@ export default function ProductsPage() {
     try {
       // First get provider ID
       const providerResponse = await fetch("/api/provider/me");
+
+      if (!providerResponse.ok) {
+        // Provider doesn't exist - redirect to settings to create profile
+        toast({
+          title: "Complete seu cadastro",
+          description: "Você precisa completar seu perfil de fornecedor primeiro",
+          variant: "destructive",
+        });
+        router.push("/provider/settings");
+        return;
+      }
+
       const providerData = await providerResponse.json();
 
       if (!providerData.provider) {
-        throw new Error("Fornecedor não encontrado");
+        toast({
+          title: "Complete seu cadastro",
+          description: "Você precisa completar seu perfil de fornecedor primeiro",
+          variant: "destructive",
+        });
+        router.push("/provider/settings");
+        return;
       }
 
       const response = await fetch(

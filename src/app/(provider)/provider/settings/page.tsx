@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,55 +16,153 @@ import {
   CreditCard,
   Bell,
   Lock,
-  Globe
+  Globe,
+  AlertCircle
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function SettingsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [providerId, setProviderId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
   const [businessInfo, setBusinessInfo] = useState({
-    tradeName: "Bom Sabor Restaurante",
-    legalName: "Bom Sabor Alimentos LTDA",
-    cnpj: "12.345.678/0001-90",
-    description: "Restaurante com comida caseira e delivery rápido na região",
-    phone: "(11) 3456-7890",
-    email: "contato@bomsabor.com",
-    website: "www.bomsabor.com",
+    tradeName: "",
+    legalName: "",
+    cnpj: "",
+    description: "",
+    phone: "",
+    email: "",
+    website: "",
   });
 
   const [addressInfo, setAddressInfo] = useState({
-    street: "Rua das Flores",
-    number: "123",
-    complement: "Loja 1",
-    neighborhood: "Centro",
-    city: "São Paulo",
-    state: "SP",
-    zipCode: "01234-567",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    latitude: 0,
+    longitude: 0,
   });
 
-  const [operatingHours] = useState([
-    { day: "Segunda-feira", open: "09:00", close: "18:00", closed: false },
-    { day: "Terça-feira", open: "09:00", close: "18:00", closed: false },
-    { day: "Quarta-feira", open: "09:00", close: "18:00", closed: false },
-    { day: "Quinta-feira", open: "09:00", close: "18:00", closed: false },
-    { day: "Sexta-feira", open: "09:00", close: "20:00", closed: false },
-    { day: "Sábado", open: "10:00", close: "16:00", closed: false },
-    { day: "Domingo", open: "00:00", close: "00:00", closed: true },
-  ]);
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/login");
+    } else if (status === "authenticated") {
+      loadData();
+    }
+  }, [status, router]);
 
-  const [paymentMethods, setPaymentMethods] = useState({
-    cash: true,
-    debitCard: true,
-    creditCard: true,
-    pix: true,
-    bankTransfer: false,
-  });
+  const loadData = async () => {
+    try {
+      // Load categories
+      const categoriesRes = await fetch("/api/categories");
+      const categoriesData = await categoriesRes.json();
+      setCategories(categoriesData.categories || []);
 
-  const [notifications, setNotifications] = useState({
-    newOrders: true,
-    orderUpdates: true,
-    customerMessages: true,
-    campaignResults: false,
-    systemUpdates: true,
-  });
+      // Try to load provider data
+      const providerRes = await fetch("/api/provider/me");
+      if (providerRes.ok) {
+        const data = await providerRes.json();
+        const provider = data.provider;
+
+        setProviderId(provider.id);
+        setBusinessInfo({
+          tradeName: provider.tradeName || "",
+          legalName: provider.legalName || "",
+          cnpj: provider.cnpj || "",
+          description: provider.description || "",
+          phone: provider.phone || "",
+          email: provider.email || "",
+          website: provider.website || "",
+        });
+        setAddressInfo({
+          street: provider.street || "",
+          number: provider.number || "",
+          complement: provider.complement || "",
+          neighborhood: provider.neighborhood || "",
+          city: provider.city || "",
+          state: provider.state || "",
+          zipCode: provider.zipCode || "",
+          latitude: provider.latitude || 0,
+          longitude: provider.longitude || 0,
+        });
+        setSelectedCategories(provider.categories?.map((c: any) => c.categoryId) || []);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveProvider = async () => {
+    setSaving(true);
+    try {
+      const method = providerId ? "PUT" : "POST";
+      const payload = providerId
+        ? {
+            id: providerId,
+            ...businessInfo,
+            ...addressInfo,
+            categoryIds: selectedCategories,
+          }
+        : {
+            ...businessInfo,
+            ...addressInfo,
+            categoryIds: selectedCategories,
+          };
+
+      const res = await fetch("/api/providers", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProviderId(data.provider.id);
+        toast({
+          title: "Sucesso!",
+          description: "Perfil de fornecedor salvo com sucesso",
+        });
+        // Reload data
+        await loadData();
+      } else {
+        const error = await res.json();
+        toast({
+          title: "Erro ao salvar",
+          description: error.error || "Erro ao salvar perfil",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving provider:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar perfil de fornecedor",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -72,6 +172,23 @@ export default function SettingsPage() {
           Gerencie as informações e preferências do seu estabelecimento
         </p>
       </div>
+
+      {!providerId && (
+        <Card className="border-yellow-300 bg-yellow-50 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-yellow-900">Complete seu perfil de fornecedor</h3>
+                <p className="text-sm text-yellow-800 mt-1">
+                  Você precisa completar o cadastro do seu estabelecimento para poder cadastrar produtos e receber pedidos.
+                  Preencha as informações abaixo e clique em &quot;Salvar Perfil&quot;.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-6">
         {/* Business Information */}
@@ -168,11 +285,28 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <Button>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Alterações
-              </Button>
+            {/* Categories Selection */}
+            <div>
+              <label className="text-sm font-medium">Categorias de Atuação</label>
+              <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2">
+                {categories.map((category) => (
+                  <label key={category.id} className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(category.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCategories([...selectedCategories, category.id]);
+                        } else {
+                          setSelectedCategories(selectedCategories.filter(id => id !== category.id));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{category.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -262,296 +396,54 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <Button>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Endereço
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Latitude</label>
+                <Input
+                  type="number"
+                  step="0.000001"
+                  value={addressInfo.latitude}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setAddressInfo({ ...addressInfo, latitude: parseFloat(e.target.value) || 0 })
+                  }
+                  placeholder="-23.550520"
+                />
+                <p className="text-xs text-gray-500 mt-1">Opcional - para cálculo de distância</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Longitude</label>
+                <Input
+                  type="number"
+                  step="0.000001"
+                  value={addressInfo.longitude}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setAddressInfo({ ...addressInfo, longitude: parseFloat(e.target.value) || 0 })
+                  }
+                  placeholder="-46.633308"
+                />
+                <p className="text-xs text-gray-500 mt-1">Opcional - para cálculo de distância</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Operating Hours */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              <CardTitle>Horário de Funcionamento</CardTitle>
-            </div>
-            <CardDescription>
-              Defina os horários de abertura e fechamento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {operatingHours.map((schedule, index) => (
-                <div key={index} className="flex items-center gap-4 py-2 border-b last:border-0">
-                  <div className="w-32 font-medium text-sm text-gray-700">
-                    {schedule.day}
-                  </div>
-                  {schedule.closed ? (
-                    <span className="text-sm text-gray-500">Fechado</span>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="time"
-                        value={schedule.open}
-                        className="w-32"
-                      />
-                      <span className="text-gray-500">até</span>
-                      <Input
-                        type="time"
-                        value={schedule.close}
-                        className="w-32"
-                      />
-                    </div>
-                  )}
-                  <label className="flex items-center gap-2 ml-auto">
-                    <input
-                      type="checkbox"
-                      checked={schedule.closed}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-600">Fechado</span>
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Horários
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payment Methods */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-blue-600" />
-              <CardTitle>Formas de Pagamento</CardTitle>
-            </div>
-            <CardDescription>
-              Selecione os métodos de pagamento aceitos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={paymentMethods.cash}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPaymentMethods({ ...paymentMethods, cash: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium">Dinheiro</div>
-                  <div className="text-sm text-gray-500">Pagamento em espécie</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={paymentMethods.debitCard}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPaymentMethods({ ...paymentMethods, debitCard: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium">Cartão de Débito</div>
-                  <div className="text-sm text-gray-500">Débito na hora</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={paymentMethods.creditCard}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPaymentMethods({ ...paymentMethods, creditCard: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium">Cartão de Crédito</div>
-                  <div className="text-sm text-gray-500">Parcelamento disponível</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={paymentMethods.pix}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPaymentMethods({ ...paymentMethods, pix: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium">PIX</div>
-                  <div className="text-sm text-gray-500">Transferência instantânea</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={paymentMethods.bankTransfer}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPaymentMethods({ ...paymentMethods, bankTransfer: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium">Transferência Bancária</div>
-                  <div className="text-sm text-gray-500">TED/DOC</div>
-                </div>
-              </label>
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Métodos
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notifications */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-blue-600" />
-              <CardTitle>Notificações</CardTitle>
-            </div>
-            <CardDescription>
-              Configure as notificações que deseja receber
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <label className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <div>
-                  <div className="font-medium">Novos Pedidos</div>
-                  <div className="text-sm text-gray-500">Receba notificações de novos pedidos</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifications.newOrders}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNotifications({ ...notifications, newOrders: e.target.checked })
-                  }
-                  className="rounded"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <div>
-                  <div className="font-medium">Atualizações de Pedidos</div>
-                  <div className="text-sm text-gray-500">Mudanças de status dos pedidos</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifications.orderUpdates}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNotifications({ ...notifications, orderUpdates: e.target.checked })
-                  }
-                  className="rounded"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <div>
-                  <div className="font-medium">Mensagens de Clientes</div>
-                  <div className="text-sm text-gray-500">Quando clientes enviarem mensagens</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifications.customerMessages}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNotifications({ ...notifications, customerMessages: e.target.checked })
-                  }
-                  className="rounded"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <div>
-                  <div className="font-medium">Resultados de Campanhas</div>
-                  <div className="text-sm text-gray-500">Relatórios de performance</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifications.campaignResults}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNotifications({ ...notifications, campaignResults: e.target.checked })
-                  }
-                  className="rounded"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <div>
-                  <div className="font-medium">Atualizações do Sistema</div>
-                  <div className="text-sm text-gray-500">Novos recursos e melhorias</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifications.systemUpdates}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNotifications({ ...notifications, systemUpdates: e.target.checked })
-                  }
-                  className="rounded"
-                />
-              </label>
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Preferências
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Security */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-blue-600" />
-              <CardTitle>Segurança</CardTitle>
-            </div>
-            <CardDescription>
-              Gerencie a segurança da sua conta
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Senha Atual</label>
-              <Input type="password" placeholder="Digite sua senha atual" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Nova Senha</label>
-              <Input type="password" placeholder="Digite a nova senha" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Confirmar Nova Senha</label>
-              <Input type="password" placeholder="Confirme a nova senha" />
-            </div>
-            <div className="flex justify-end">
-              <Button>
-                <Save className="mr-2 h-4 w-4" />
-                Alterar Senha
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Save Button */}
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/provider/dashboard")}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSaveProvider}
+            disabled={saving || selectedCategories.length === 0}
+            className="min-w-[200px]"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Salvando..." : (providerId ? "Atualizar Perfil" : "Criar Perfil de Fornecedor")}
+          </Button>
+        </div>
       </div>
     </div>
   );
