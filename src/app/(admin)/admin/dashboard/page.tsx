@@ -13,37 +13,59 @@ import {
   XCircle,
   AlertCircle
 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+interface DashboardStats {
+  stats: {
+    providers: { total: number; pending: number; active: number; inactive: number; growth: number };
+    users: { total: number; active: number; inactive: number; growth: number };
+    orders: { total: number; pending: number; completed: number; cancelled: number; growth: number };
+    revenue: { total: number; thisMonth: number; growth: number };
+  };
+  pendingProviders: any[];
+  topCategories: any[];
+}
 
 export default function AdminDashboardPage() {
-  // Mock data
-  const stats = {
-    providers: { total: 156, pending: 12, active: 132, inactive: 12, growth: 8.5 },
-    users: { total: 3420, active: 2890, inactive: 530, growth: 12.3 },
-    orders: { total: 8923, pending: 45, completed: 8654, cancelled: 224, growth: 15.7 },
-    revenue: { total: 234567.89, thisMonth: 45678.90, growth: 22.4 }
-  };
+  const [data, setData] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const recentActivities = [
-    { id: 1, type: "provider", message: "Novo fornecedor cadastrado: Farmácia Vida", time: "5 min atrás", status: "pending" },
-    { id: 2, type: "order", message: "Pedido #8923 concluído", time: "12 min atrás", status: "completed" },
-    { id: 3, type: "user", message: "50 novos usuários registrados hoje", time: "1 hora atrás", status: "info" },
-    { id: 4, type: "provider", message: "Fornecedor 'Mercado Central' aprovado", time: "2 horas atrás", status: "completed" },
-    { id: 5, type: "fiscal", message: "Documento fiscal rejeitado - Padaria do Bairro", time: "3 horas atrás", status: "rejected" },
-  ];
+  useEffect(() => {
+    fetch("/api/admin/stats")
+      .then((res) => res.json())
+      .then((data) => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching stats:", error);
+        setLoading(false);
+      });
+  }, []);
 
-  const pendingProviders = [
-    { id: 1, name: "Farmácia Vida", category: "Saúde", date: "2024-01-20", status: "Aguardando aprovação" },
-    { id: 2, name: "Loja de Roupas Fashion", category: "Moda", date: "2024-01-20", status: "Aguardando documentos" },
-    { id: 3, name: "Eletrônicos Tech", category: "Tecnologia", date: "2024-01-19", status: "Em análise" },
-    { id: 4, name: "Pet Shop Amigo", category: "Pet", date: "2024-01-19", status: "Aguardando aprovação" },
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando estatísticas...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const topCategories = [
-    { name: "Alimentação", providers: 45, orders: 3421, revenue: 89234.56 },
-    { name: "Saúde", providers: 32, orders: 2156, revenue: 67890.12 },
-    { name: "Serviços", providers: 28, orders: 1876, revenue: 45678.90 },
-    { name: "Comércio", providers: 24, orders: 1234, revenue: 34567.89 },
-  ];
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <XCircle className="h-12 w-12 text-red-500 mx-auto" />
+          <p className="mt-4 text-gray-600">Erro ao carregar estatísticas</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { stats } = data;
 
   return (
     <div className="p-8">
@@ -138,44 +160,6 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Recent Activities */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Atividades Recentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivities.map((activity) => {
-                const getStatusIcon = () => {
-                  switch (activity.status) {
-                    case 'completed':
-                      return <CheckCircle className="h-4 w-4 text-green-600" />;
-                    case 'pending':
-                      return <AlertCircle className="h-4 w-4 text-yellow-600" />;
-                    case 'rejected':
-                      return <XCircle className="h-4 w-4 text-red-600" />;
-                    default:
-                      return <Clock className="h-4 w-4 text-blue-600" />;
-                  }
-                };
-
-                return (
-                  <div key={activity.id} className="flex items-start gap-3 pb-3 border-b last:border-0 last:pb-0">
-                    {getStatusIcon()}
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{activity.message}</p>
-                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Pending Providers */}
         <Card>
           <CardHeader>
@@ -185,77 +169,68 @@ export default function AdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {pendingProviders.map((provider) => (
-                <div key={provider.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <div>
-                    <p className="font-medium text-sm text-gray-900">{provider.name}</p>
-                    <p className="text-xs text-gray-500">{provider.category} • {provider.date}</p>
+            {data.pendingProviders.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Nenhum fornecedor pendente
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data.pendingProviders.map((provider) => (
+                  <div key={provider.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">{provider.tradeName || provider.legalName}</p>
+                      <p className="text-xs text-gray-500">
+                        {provider.categories[0]?.category.name || 'Sem categoria'} •
+                        {new Date(provider.createdAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                      Aguardando aprovação
+                    </span>
                   </div>
-                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                    {provider.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Categories */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Principais Categorias
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.topCategories.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Nenhuma categoria cadastrada
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data.topCategories.slice(0, 5).map((category) => (
+                  <div key={category.id} className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{category.name}</p>
+                      <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                        <span>{category._count.providers} fornecedores</span>
+                        <span>•</span>
+                        <span>{category._count.products} produtos</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-blue-600">
+                        {category._count.providers}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Top Categories */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Categorias Principais
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Categoria</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Fornecedores</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Pedidos</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Receita</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Performance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topCategories.map((category, index) => {
-                  const maxRevenue = Math.max(...topCategories.map(c => c.revenue));
-                  const percentage = (category.revenue / maxRevenue) * 100;
-
-                  return (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="py-4 px-4 font-medium text-gray-900">{category.name}</td>
-                      <td className="py-4 px-4 text-gray-700">{category.providers}</td>
-                      <td className="py-4 px-4 text-gray-700">{category.orders.toLocaleString()}</td>
-                      <td className="py-4 px-4 text-gray-700">
-                        R$ {category.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-600 w-12 text-right">
-                            {percentage.toFixed(0)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
